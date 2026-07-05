@@ -2,7 +2,7 @@
 export const CONFIG = {
   // JSONBin.io — crée un bin sur https://jsonbin.io puis renseigne son ID et ta clé API.
   JSONBIN_BIN_ID: '6a4a5d2bda38895dfe30e05e',
-  JSONBIN_API_KEY: '$2a$10$9fvt25px5X5p7pdf3MAbVuIy.WedqSZ/BqGeyFOZ/D2kCTsqVg5mG',
+  JSONBIN_API_KEY: '$2a$10$BqunamqwLpiSlpSBNDCye.rS/WNFvhhXQFS/FM8J56pMAP3//AuMe',
   JSONBIN_BASE_URL: 'https://api.jsonbin.io/v3/b',
 
   // imgbb.com — crée une clé API gratuite sur https://api.imgbb.com/ pour activer l'upload d'images.
