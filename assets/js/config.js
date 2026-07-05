@@ -6,7 +6,7 @@ export const CONFIG = {
   JSONBIN_BASE_URL: 'https://api.jsonbin.io/v3/b',
 
   // imgbb.com — crée une clé API gratuite sur https://api.imgbb.com/ pour activer l'upload d'images.
-  IMGBB_API_KEY: 'REPLACE_WITH_YOUR_IMGBB_API_KEY',
+  IMGBB_API_KEY: '9ce51dc002389fafcfd4ce6d925ff425',
   IMGBB_UPLOAD_URL: 'https://api.imgbb.com/1/upload',
 };
 
