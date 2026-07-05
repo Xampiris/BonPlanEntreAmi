@@ -1,0 +1,124 @@
+/* Complète Tailwind (CDN) pour les éléments non triviaux en utilitaires seuls. */
+
+/* :not(.hidden) évite tout conflit de cascade avec l'utilitaire Tailwind
+   "hidden", quel que soit l'ordre de chargement du CDN vs. cette feuille. */
+.modal-overlay:not(.hidden) {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 60;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+}
+
+.modal-overlay .modal-box {
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.2s ease;
+}
+
+.modal-overlay.open .modal-box {
+  transform: translateY(0) scale(1);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.chip-remove {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.chip-remove:hover {
+  opacity: 1;
+}
+
+.card-image-placeholder {
+  background: linear-gradient(135deg, #fef3c7, #fecaca, #ddd6fe);
+}
+
+.dark .card-image-placeholder {
+  background: linear-gradient(135deg, #78350f, #7f1d1d, #4c1d95);
+}
+
+#toast-container {
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  color: #1e293b;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+  transform: translateX(120%);
+  opacity: 0;
+  transition: all 0.3s ease;
+  max-width: 22rem;
+  font-size: 0.9rem;
+}
+
+.dark .toast {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-error {
+  border-left: 4px solid #ef4444;
+}
+
+.toast-success {
+  border-left: 4px solid #22c55e;
+}
+
+.toast-info {
+  border-left: 4px solid #3b82f6;
+}
+
+.spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.category-chip.active {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+.card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+}
