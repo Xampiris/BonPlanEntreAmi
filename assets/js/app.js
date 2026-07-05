@@ -1,6 +1,6 @@
-import { CONFIG, isConfigured, isImageUploadConfigured } from './config.js';
+import { CONFIG, isConfigured, isImageUploadConfigured, isAdminConfigured } from './config.js';
 import { CATEGORIES, getCategory, badgeClasses } from './categories.js';
-import { fetchAnnonces, persistAnnonces, uploadImage } from './api.js';
+import { fetchData, persistData, uploadImage } from './api.js';
 import { uuid, escapeHtml, formatDate, debounce, isValidUrl } from './utils.js';
 import { showToast } from './toast.js';
 
@@ -9,7 +9,11 @@ const THEME_KEY = 'bpea_theme';
 
 const state = {
   annonces: [],
+  utilisateurs: [],
   pseudo: localStorage.getItem(PSEUDO_KEY) || '',
+  pendingPseudo: '',
+  pendingIsNewUser: false,
+  pseudoModalIsEdit: false,
   searchQuery: '',
   categoryFilter: null,
   sortBy: 'recent',
@@ -43,10 +47,34 @@ const dom = {
   grid: el('annonces-grid'),
 
   pseudoModal: el('pseudo-modal'),
+  pseudoStepName: el('pseudo-step-name'),
   pseudoInput: el('pseudo-input'),
   pseudoError: el('pseudo-error'),
   pseudoCancel: el('pseudo-cancel'),
-  pseudoSubmit: el('pseudo-submit'),
+  pseudoNext: el('pseudo-next'),
+
+  pseudoStepPassword: el('pseudo-step-password'),
+  passwordStepTitle: el('password-step-title'),
+  passwordStepSubtitle: el('password-step-subtitle'),
+  passwordLoginFields: el('password-login-fields'),
+  passwordLoginInput: el('password-login-input'),
+  passwordSignupFields: el('password-signup-fields'),
+  passwordNewInput: el('password-new-input'),
+  passwordConfirmInput: el('password-confirm-input'),
+  passwordError: el('password-error'),
+  passwordForgotLink: el('password-forgot-link'),
+  passwordBack: el('password-back'),
+  passwordSubmit: el('password-submit'),
+
+  adminModal: el('admin-modal'),
+  adminStepPassword: el('admin-step-password'),
+  adminPasswordInput: el('admin-password-input'),
+  adminError: el('admin-error'),
+  adminCancel: el('admin-cancel'),
+  adminSubmit: el('admin-submit'),
+  adminStepList: el('admin-step-list'),
+  adminUsersList: el('admin-users-list'),
+  adminClose: el('admin-close'),
 
   annonceModal: el('annonce-modal'),
   annonceModalTitle: el('annonce-modal-title'),
@@ -146,11 +174,27 @@ document.querySelectorAll('.modal-overlay').forEach((overlay) => {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   const openOverlay = document.querySelector('.modal-overlay.open');
-  if (openOverlay && openOverlay !== dom.pseudoModal) closeModal(openOverlay);
+  if (!openOverlay || openOverlay === dom.pseudoModal) return;
+  if (openOverlay === dom.adminModal) {
+    closeAdminModal();
+  } else {
+    closeModal(openOverlay);
+  }
 });
 
-// ---------- Pseudo ----------
-function openPseudoModal(isEdit) {
+// ---------- Pseudo & mot de passe ----------
+// Protection légère anti-usurpation entre amis : les mots de passe sont stockés
+// en clair dans le même bin JSON (déjà lisible via la clé API côté client), ce
+// n'est pas un vrai système sécurisé. Voir README pour le détail du compromis.
+function findUser(pseudo) {
+  const normalized = pseudo.trim().toLowerCase();
+  return state.utilisateurs.find((u) => u.pseudo.trim().toLowerCase() === normalized);
+}
+
+function openPseudoNameStep(isEdit) {
+  state.pseudoModalIsEdit = isEdit;
+  dom.pseudoStepName.classList.remove('hidden');
+  dom.pseudoStepPassword.classList.add('hidden');
   dom.pseudoInput.value = isEdit ? state.pseudo : '';
   dom.pseudoError.classList.add('hidden');
   dom.pseudoCancel.classList.toggle('hidden', !isEdit);
@@ -160,53 +204,195 @@ function openPseudoModal(isEdit) {
 
 dom.pseudoCancel.addEventListener('click', () => closeModal(dom.pseudoModal));
 
-dom.pseudoSubmit.addEventListener('click', () => {
+dom.pseudoNext.addEventListener('click', () => {
   const value = dom.pseudoInput.value.trim();
   if (value.length < 2) {
     dom.pseudoError.classList.remove('hidden');
     return;
   }
-  const previous = state.pseudo;
-  state.pseudo = value;
-  localStorage.setItem(PSEUDO_KEY, value);
-  updatePseudoDisplay();
-  closeModal(dom.pseudoModal);
-  if (!previous) {
-    boot();
-  } else {
-    render();
-  }
+  dom.pseudoError.classList.add('hidden');
+  openPasswordStep(value);
 });
 
 dom.pseudoInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') dom.pseudoSubmit.click();
+  if (e.key === 'Enter') dom.pseudoNext.click();
 });
 
-dom.settingsBtn.addEventListener('click', () => openPseudoModal(true));
+dom.settingsBtn.addEventListener('click', () => openPseudoNameStep(true));
+
+function openPasswordStep(pseudo) {
+  state.pendingPseudo = pseudo;
+  const existingUser = findUser(pseudo);
+  state.pendingIsNewUser = !existingUser;
+
+  dom.pseudoStepName.classList.add('hidden');
+  dom.pseudoStepPassword.classList.remove('hidden');
+  dom.passwordError.classList.add('hidden');
+  dom.passwordLoginInput.value = '';
+  dom.passwordNewInput.value = '';
+  dom.passwordConfirmInput.value = '';
+
+  if (existingUser) {
+    dom.passwordStepTitle.textContent = `Bon retour, ${pseudo} !`;
+    dom.passwordStepSubtitle.textContent = 'Entre ton mot de passe pour continuer.';
+    dom.passwordLoginFields.classList.remove('hidden');
+    dom.passwordSignupFields.classList.add('hidden');
+    dom.passwordForgotLink.classList.remove('hidden');
+    setTimeout(() => dom.passwordLoginInput.focus(), 50);
+  } else {
+    dom.passwordStepTitle.textContent = `Bienvenue, ${pseudo} !`;
+    dom.passwordStepSubtitle.textContent = 'Ce pseudo est libre : choisis un mot de passe pour le protéger.';
+    dom.passwordLoginFields.classList.add('hidden');
+    dom.passwordSignupFields.classList.remove('hidden');
+    dom.passwordForgotLink.classList.add('hidden');
+    setTimeout(() => dom.passwordNewInput.focus(), 50);
+  }
+}
+
+dom.passwordBack.addEventListener('click', () => openPseudoNameStep(state.pseudoModalIsEdit));
+
+function completeLogin(pseudo) {
+  state.pseudo = pseudo;
+  localStorage.setItem(PSEUDO_KEY, pseudo);
+  updatePseudoDisplay();
+  closeModal(dom.pseudoModal);
+  render();
+  openDetailFromHash();
+}
+
+dom.passwordSubmit.addEventListener('click', async () => {
+  const pseudo = state.pendingPseudo;
+  dom.passwordError.classList.add('hidden');
+
+  if (state.pendingIsNewUser) {
+    const pwd = dom.passwordNewInput.value;
+    const confirmPwd = dom.passwordConfirmInput.value;
+    if (pwd.length < 4) {
+      dom.passwordError.textContent = 'Le mot de passe doit contenir au moins 4 caractères.';
+      dom.passwordError.classList.remove('hidden');
+      return;
+    }
+    if (pwd !== confirmPwd) {
+      dom.passwordError.textContent = 'Les mots de passe ne correspondent pas.';
+      dom.passwordError.classList.remove('hidden');
+      return;
+    }
+    const updatedUsers = [...state.utilisateurs, { pseudo, motDePasse: pwd, dateCreation: new Date().toISOString() }];
+    dom.passwordSubmit.disabled = true;
+    try {
+      await persistData({ annonces: state.annonces, utilisateurs: updatedUsers });
+      state.utilisateurs = updatedUsers;
+      completeLogin(pseudo);
+    } catch (err) {
+      dom.passwordError.textContent = err.message;
+      dom.passwordError.classList.remove('hidden');
+    } finally {
+      dom.passwordSubmit.disabled = false;
+    }
+  } else {
+    const pwd = dom.passwordLoginInput.value;
+    const user = findUser(pseudo);
+    if (!user || user.motDePasse !== pwd) {
+      dom.passwordError.textContent = 'Mot de passe incorrect.';
+      dom.passwordError.classList.remove('hidden');
+      return;
+    }
+    // Utilise la casse enregistrée à l'inscription pour que la comparaison
+    // "annonce.auteur === state.pseudo" continue de reconnaître l'auteur.
+    completeLogin(user.pseudo);
+  }
+});
+
+dom.passwordLoginInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') dom.passwordSubmit.click();
+});
+dom.passwordConfirmInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') dom.passwordSubmit.click();
+});
 
 function updatePseudoDisplay() {
   dom.pseudoDisplay.textContent = state.pseudo ? `👤 ${state.pseudo}` : '';
 }
 
-// ---------- Chargement des annonces ----------
-async function loadAnnonces() {
+// ---------- Récupération admin ----------
+function closeAdminModal() {
+  closeModal(dom.adminModal);
+  if (!state.pseudo) openPseudoNameStep(false);
+}
+
+function openAdminModal() {
+  dom.adminStepPassword.classList.remove('hidden');
+  dom.adminStepList.classList.add('hidden');
+  dom.adminPasswordInput.value = '';
+  dom.adminError.classList.toggle('hidden', isAdminConfigured());
+  if (!isAdminConfigured()) {
+    dom.adminError.textContent = "Fonction admin non configurée par le déployeur (voir config.js).";
+  }
+  openModal(dom.adminModal);
+  setTimeout(() => dom.adminPasswordInput.focus(), 50);
+}
+
+dom.passwordForgotLink.addEventListener('click', () => {
+  closeModal(dom.pseudoModal);
+  openAdminModal();
+});
+
+dom.adminCancel.addEventListener('click', closeAdminModal);
+dom.adminClose.addEventListener('click', closeAdminModal);
+
+dom.adminSubmit.addEventListener('click', () => {
+  if (!isAdminConfigured()) return;
+  const pwd = dom.adminPasswordInput.value;
+  if (pwd !== CONFIG.ADMIN_PASSWORD) {
+    dom.adminError.textContent = 'Mot de passe admin incorrect.';
+    dom.adminError.classList.remove('hidden');
+    return;
+  }
+  dom.adminStepPassword.classList.add('hidden');
+  dom.adminStepList.classList.remove('hidden');
+  dom.adminUsersList.innerHTML = state.utilisateurs.length
+    ? state.utilisateurs
+        .map(
+          (u) => `
+      <div class="flex justify-between items-center py-2 gap-3">
+        <span class="font-medium">${escapeHtml(u.pseudo)}</span>
+        <code class="text-slate-500 dark:text-slate-400">${escapeHtml(u.motDePasse)}</code>
+      </div>`
+        )
+        .join('')
+    : '<p class="text-slate-500 py-2">Aucun utilisateur enregistré pour le moment.</p>';
+});
+
+dom.adminPasswordInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') dom.adminSubmit.click();
+});
+
+// ---------- Chargement des données ----------
+async function loadData() {
   dom.loadingState.classList.remove('hidden');
   dom.errorState.classList.add('hidden');
   dom.emptyState.classList.add('hidden');
   dom.grid.classList.add('hidden');
   try {
-    state.annonces = await fetchAnnonces();
+    const data = await fetchData();
+    state.annonces = data.annonces;
+    state.utilisateurs = data.utilisateurs;
     dom.loadingState.classList.add('hidden');
     dom.grid.classList.remove('hidden');
     render();
+    return true;
   } catch (err) {
     dom.loadingState.classList.add('hidden');
     dom.errorState.classList.remove('hidden');
     dom.errorMessage.textContent = err.message;
+    return false;
   }
 }
 
-dom.retryBtn.addEventListener('click', loadAnnonces);
+dom.retryBtn.addEventListener('click', async () => {
+  const ok = await loadData();
+  if (ok) proceedToPseudoFlow();
+});
 
 // ---------- Filtres & recherche ----------
 function renderCategoryFilters() {
@@ -549,7 +735,7 @@ dom.annonceForm.addEventListener('submit', async (e) => {
   dom.annonceFormSubmitLabel.innerHTML = '<span class="spinner inline-block align-middle"></span>';
 
   try {
-    await persistAnnonces(updatedList);
+    await persistData({ annonces: updatedList, utilisateurs: state.utilisateurs });
     state.annonces = updatedList;
     closeModal(dom.annonceModal);
     showToast(state.editingId ? 'Annonce mise à jour' : 'Annonce publiée', 'success');
@@ -571,7 +757,7 @@ function confirmDelete(annonce) {
 async function deleteAnnonce(id) {
   const updatedList = state.annonces.filter((a) => a.id !== id);
   try {
-    await persistAnnonces(updatedList);
+    await persistData({ annonces: updatedList, utilisateurs: state.utilisateurs });
     state.annonces = updatedList;
     closeModal(dom.detailModal);
     showToast('Annonce supprimée', 'success');
@@ -652,13 +838,16 @@ function openDetailFromHash() {
 }
 
 // ---------- Démarrage ----------
-async function boot() {
-  updatePseudoDisplay();
-  await loadAnnonces();
-  openDetailFromHash();
+function proceedToPseudoFlow() {
+  if (!state.pseudo) {
+    openPseudoNameStep(false);
+  } else {
+    updatePseudoDisplay();
+    openDetailFromHash();
+  }
 }
 
-function init() {
+async function init() {
   initTheme();
   populateCategorySelect();
   renderCategoryFilters();
@@ -668,11 +857,8 @@ function init() {
     dom.configWarning.classList.remove('hidden');
   }
 
-  if (!state.pseudo) {
-    openPseudoModal(false);
-  } else {
-    boot();
-  }
+  const ok = await loadData();
+  if (ok) proceedToPseudoFlow();
 }
 
 init();

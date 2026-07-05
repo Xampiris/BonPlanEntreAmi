@@ -1,22 +1,23 @@
 import { CONFIG, isConfigured } from './config.js';
 
-// Tant que JSONBin n'est pas configuré, les annonces sont stockées localement
+// Tant que JSONBin n'est pas configuré, les données sont stockées localement
 // (localStorage) pour permettre de découvrir/tester l'application immédiatement.
-const LOCAL_FALLBACK_KEY = 'bpea_local_annonces';
+const LOCAL_FALLBACK_KEY = 'bpea_local_data';
 
 function readLocalFallback() {
   try {
-    return JSON.parse(localStorage.getItem(LOCAL_FALLBACK_KEY)) || [];
+    const data = JSON.parse(localStorage.getItem(LOCAL_FALLBACK_KEY));
+    return { annonces: data?.annonces || [], utilisateurs: data?.utilisateurs || [] };
   } catch {
-    return [];
+    return { annonces: [], utilisateurs: [] };
   }
 }
 
-function writeLocalFallback(annonces) {
-  localStorage.setItem(LOCAL_FALLBACK_KEY, JSON.stringify(annonces));
+function writeLocalFallback(data) {
+  localStorage.setItem(LOCAL_FALLBACK_KEY, JSON.stringify(data));
 }
 
-export async function fetchAnnonces() {
+export async function fetchData() {
   if (!isConfigured()) {
     return readLocalFallback();
   }
@@ -27,16 +28,16 @@ export async function fetchAnnonces() {
     },
   });
   if (!res.ok) {
-    throw new Error(`Impossible de charger les annonces (erreur ${res.status})`);
+    throw new Error(`Impossible de charger les données (erreur ${res.status})`);
   }
   const data = await res.json();
-  return Array.isArray(data?.annonces) ? data.annonces : [];
+  return { annonces: Array.isArray(data?.annonces) ? data.annonces : [], utilisateurs: Array.isArray(data?.utilisateurs) ? data.utilisateurs : [] };
 }
 
-export async function persistAnnonces(annonces) {
+export async function persistData(data) {
   if (!isConfigured()) {
-    writeLocalFallback(annonces);
-    return { annonces };
+    writeLocalFallback(data);
+    return data;
   }
   const res = await fetch(`${CONFIG.JSONBIN_BASE_URL}/${CONFIG.JSONBIN_BIN_ID}`, {
     method: 'PUT',
@@ -44,10 +45,10 @@ export async function persistAnnonces(annonces) {
       'Content-Type': 'application/json',
       'X-Master-Key': CONFIG.JSONBIN_API_KEY,
     },
-    body: JSON.stringify({ annonces }),
+    body: JSON.stringify(data),
   });
   if (!res.ok) {
-    throw new Error(`Impossible d'enregistrer les annonces (erreur ${res.status})`);
+    throw new Error(`Impossible d'enregistrer les données (erreur ${res.status})`);
   }
   return res.json();
 }

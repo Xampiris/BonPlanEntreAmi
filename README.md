@@ -7,7 +7,7 @@ Application web légère permettant à un groupe d'amis de partager leurs compé
 - Consultation, création, modification et suppression d'annonces (modification/suppression réservées à l'auteur)
 - Recherche par mot-clé (titre, description, tags) et filtre par catégorie, combinables
 - Tri (plus récentes / alphabétique), mode sombre, partage direct d'une annonce par lien
-- Reconnaissance de l'auteur via un pseudo local (pas de compte, pas de mot de passe)
+- Pseudo + mot de passe léger pour éviter qu'un autre membre du groupe usurpe un pseudo déjà pris
 - Interface responsive : grille 3 colonnes (desktop), 2 colonnes (tablette), liste (mobile)
 
 ## Stack technique
@@ -23,6 +23,7 @@ export const CONFIG = {
   JSONBIN_BIN_ID: '...',
   JSONBIN_API_KEY: '...',
   IMGBB_API_KEY: '...',
+  ADMIN_PASSWORD: '...',
 };
 ```
 
@@ -45,7 +46,13 @@ Sans cette clé, l'onglet "Uploader" du formulaire est désactivé mais l'onglet
 
 ### Mode démo sans configuration
 
-Tant que `JSONBIN_BIN_ID` / `JSONBIN_API_KEY` ne sont pas renseignés, l'application stocke automatiquement les annonces dans le `localStorage` du navigateur — pratique pour tester l'interface avant de configurer JSONBin, mais les données ne sont alors pas partagées entre utilisateurs.
+Tant que `JSONBIN_BIN_ID` / `JSONBIN_API_KEY` ne sont pas renseignés, l'application stocke automatiquement les données dans le `localStorage` du navigateur — pratique pour tester l'interface avant de configurer JSONBin, mais les données ne sont alors pas partagées entre utilisateurs.
+
+### 3. Pseudo + mot de passe (protection légère)
+
+Au premier accès (ou pour changer de pseudo), chacun choisit un pseudo puis un mot de passe. Si le pseudo est déjà pris par quelqu'un d'autre dans le groupe, il faut son mot de passe pour l'utiliser. Ce mot de passe est stocké **en clair** dans le même bin JSON (à côté des annonces, sous la clé `utilisateurs`) — ce n'est **pas un vrai système sécurisé** : comme la clé API JSONBin est déjà visible dans le code source, n'importe qui peut techniquement lire les mots de passe en interrogeant l'API directement. L'objectif est uniquement d'empêcher une usurpation accidentelle entre amis, pas de protéger des données sensibles. Ne réutilise donc jamais un mot de passe important ici.
+
+Renseigne `ADMIN_PASSWORD` dans `config.js` avec un mot de passe de ton choix, à ne partager qu'avec la personne qui gère le groupe. En cas de mot de passe oublié, un lien "Mot de passe oublié ?" (visible à l'étape de connexion) permet à cette personne de consulter la liste des pseudos et mots de passe enregistrés. Sans configuration, cette fonction affiche un message d'erreur explicite.
 
 ## Développement local
 
@@ -72,7 +79,7 @@ Un workflow GitHub Actions (`.github/workflows/deploy.yml`) est déjà configur�
 ```
 index.html                  Page unique de l'application
 assets/css/styles.css       Styles complémentaires à Tailwind
-assets/js/config.js         Clés d'API (JSONBin, imgbb)
+assets/js/config.js         Clés d'API (JSONBin, imgbb) et mot de passe admin
 assets/js/categories.js     Liste fixe des catégories
 assets/js/api.js            Appels JSONBin + imgbb (avec fallback localStorage)
 assets/js/utils.js          Fonctions utilitaires (uuid, dates, debounce...)
@@ -85,4 +92,5 @@ assets/js/app.js            Logique principale de l'application
 
 - Pas de gestion de conflits en cas d'écritures simultanées par deux utilisateurs (acceptable pour un groupe de 10 à 30 personnes).
 - Plan gratuit JSONBin limité à 10 000 requêtes/mois.
-- Pas d'administrateur : la modération repose sur la confiance du groupe.
+- Pas d'administrateur pour la modération des annonces : elle repose sur la confiance du groupe.
+- Le mot de passe pseudo est une protection légère anti-usurpation, pas une authentification sécurisée (voir section 3 ci-dessus).
