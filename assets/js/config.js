@@ -12,7 +12,7 @@ export const CONFIG = {
   // Mot de passe pour la vue admin (consultation des mots de passe en cas d'oubli).
   // Change-le avant de déployer, et ne le partage qu'avec la personne de confiance
   // qui gère le groupe. Ce n'est pas un vrai système sécurisé (voir README).
-  ADMIN_PASSWORD: 'REPLACE_WITH_YOUR_ADMIN_PASSWORD',
+  ADMIN_PASSWORD: 'BPEA*',
 };
 
 export function isConfigured() {
@@ -27,5 +27,5 @@ export function isImageUploadConfigured() {
 }
 
 export function isAdminConfigured() {
-  return CONFIG.ADMIN_PASSWORD !== 'REPLACE_WITH_YOUR_ADMIN_PASSWORD';
+  return CONFIG.ADMIN_PASSWORD !== 'BPEA*';
 }
